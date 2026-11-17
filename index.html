@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>量子波动</title>
+<style>
+  :root{
+    --bg:#0d1017; --surface:#161b28; --border:#232b3d; --border-2:#2c3549;
+    --text:#e6e9f0; --text-2:#93a0b8; --accent:#8ea2ff; --gold:#ffd24a;
+    --primary:#2980b9; --success:#27ae60; --nav-h:60px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px; -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+
+  .app-shell{
+    height:100%; display:flex; flex-direction:column;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  }
+  .app-main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;}
+
+  .panel-view{display:none;}
+  .panel-view.active{display:block;}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;}
+  .title{font-size:15px;font-weight:700;color:var(--accent);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+
+  .input-group{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;font-size:13px;}
+  input[type="number"],input[type="text"]{
+    background:#0a0d14;border:1px solid var(--border-2);border-radius:6px;
+    color:var(--gold);padding:10px 8px;font-size:13px;font-family:Consolas,monospace;
+    outline:none;transition:border 0.2s;min-height:44px;
+  }
+  input:focus{border-color:#4c8bf5;}
+  input[type="text"]{width:100%;max-width:400px;}
+  #latestH{width:160px;}
+  #syncCount{width:110px;}
+  .hint-text{font-size:12px;color:var(--text-2);margin-bottom:8px;line-height:1.5;}
+  .inline-hint{font-size:11px;color:var(--text-2);}
+
+  button{border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;
+    cursor:pointer;color:#fff;transition:.2s;min-height:44px;-webkit-user-select:none;user-select:none;}
+  button:active{opacity:.8;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+
+  #fetchBtn{background:var(--success);width:100%;font-size:15px;}
+
+  /* 主次按钮分级 */
+  .btn-stack{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+  #predictLiveBtn{
+    background:var(--success);
+    width:100%; font-size:15px; padding:12px;
+    box-shadow:0 4px 14px rgba(39,174,96,.35);
+  }
+  #predictLiveBtn:disabled{box-shadow:none;}
+  #runQuantBtn{
+    background:transparent;
+    border:1.5px solid var(--primary);
+    color:#5dade2;
+    width:100%; font-size:13px; padding:10px;
+  }
+  #runQuantBtn:active{background:rgba(41,128,185,.12);}
+
+  /* 清除按钮：低调描边 */
+  #clearDataBtn{
+    background:transparent;
+    border:1px solid #6b2525;
+    color:#d98282;
+    width:100%;
+    font-size:13px;
+  }
+  #clearDataBtn:active{background:rgba(127,44,44,.2);}
+
+  .progress-bar{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px;display:none;}
+  .progress-inner{height:100%;background:#3498db;width:0%;transition:width 0.1s;}
+  .status-text{font-size:12px;color:#9aa6bf;text-align:center;margin-bottom:10px;}
+
+  /* 推演卡片：压扁 30% */
+  .pred-card{background:#1c2538;border:2px solid #3498db;border-radius:10px;padding:10px 12px;text-align:center;margin-bottom:10px;}
+  .pred-card .target-h{font-size:13px;color:#5ad1a0;font-weight:bold;margin-bottom:4px;letter-spacing:0.5px;}
+  .pred-card .tag{font-size:12px;color:var(--accent);font-weight:bold;margin-bottom:3px;}
+  .pred-card .rule-desc{font-size:11px;color:#b0bccf;margin-bottom:2px;line-height:1.4;}
+  .pred-balls{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin:8px 0 6px;}
+  .copy-btn{background:#3b4a6b;font-size:13px;padding:8px 16px;border-radius:8px;cursor:pointer;
+    border:none;color:#fff;font-weight:bold;width:100%;min-height:38px;}
+
+  /* 统计面板（压缩） */
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+  .res-box{background:#0a0d14;border:1px solid var(--border-2);border-radius:8px;padding:8px;text-align:center;}
+  .res-box .lab{font-size:10px;color:var(--text-2);margin-bottom:3px;}
+  .res-box .val{font-size:16px;font-weight:700;font-family:Consolas,monospace;}
+
+  .section-title{font-size:13px;color:var(--accent);margin:14px 0 8px 0;padding-bottom:5px;border-bottom:1px dashed var(--border-2);}
+
+  /* 双色球数字球 */
+  .ball{
+    display:inline-flex;align-items:center;justify-content:center;
+    border-radius:50%;color:#fff;font-family:Consolas,monospace;
+    font-weight:700;line-height:1;flex-shrink:0;
+    box-shadow:inset 0 -2px 4px rgba(0,0,0,.25);
+  }
+  .ball-sm{width:20px;height:20px;font-size:11px;}
+  .ball-lg{width:28px;height:28px;font-size:14px;}
+
+  /* 历史卡片：三行紧凑 */
+  .history-list{display:flex;flex-direction:column;gap:8px;}
+  .hist-card{background:#0f131f;border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+  .hist-pending{border-color:#f39c12;border-style:dashed;}
+  .hist-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;}
+  .hist-row:last-child{margin-bottom:0;}
+  .hist-row-sep{padding-top:6px;border-top:1px dashed var(--border-2);margin-top:0;}
+  .hist-left{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;}
+  .hist-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .hist-h{font-family:Consolas,monospace;font-size:13px;font-weight:700;color:var(--gold);}
+  .hist-status{font-size:11px;font-weight:600;}
+  .hist-profit{font-family:Consolas,monospace;font-weight:700;font-size:13px;}
+  .hist-label{font-size:11px;color:var(--text-2);flex-shrink:0;}
+  .balls{display:flex;gap:3px;flex-wrap:wrap;}
+  .hist-placeholder{font-size:12px;color:#7f8c8d;}
+
+  .txt-win{color:#27d17a;} .txt-loss{color:#ff5c5c;}
+  .txt-hit{color:#e74c3c;font-weight:bold;} .txt-miss{color:#7f8c8d;}
+  .txt-wait{color:#f39c12;font-weight:bold;}
+
+  /* 日志：带时间戳 + 四级配色 */
+  #log{background:#0a0d14;border:1px solid #1d2536;border-radius:8px;
+    min-height:240px;max-height:70vh;overflow-y:auto;padding:10px;
+    font-family:Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;}
+  .log-line{padding:1px 0;}
+  .log-ts{color:#5a6580;}
+  .log-info{color:#9aa6bf;}
+  .log-success{color:#27d17a;}
+  .log-warn{color:#f39c12;}
+  .log-error{color:#ff5c5c;}
+
+  /* Loading 遮罩 */
+  .loading-overlay{
+    position:fixed;inset:0;background:rgba(5,8,14,.72);
+    display:none;align-items:center;justify-content:center;flex-direction:column;
+    gap:16px;z-index:999;backdrop-filter:blur(3px);
+  }
+  .loading-overlay.show{display:flex;}
+  .spinner{
+    width:44px;height:44px;border-radius:50%;
+    border:4px solid rgba(255,255,255,.15);
+    border-top-color:#4f8cff;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{color:#e6e9f0;font-size:14px;font-weight:600;text-align:center;}
+
+  /* 底部导航 */
+  .bottom-nav{
+    position:fixed;bottom:0;left:0;right:0;
+    display:flex;justify-content:space-around;align-items:center;
+    height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);
+    padding-bottom:env(safe-area-inset-bottom);z-index:100;
+  }
+  .bottom-nav__item{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+    padding:6px 0;border:none;background:none;color:var(--text-2);
+    font-size:11px;cursor:pointer;min-height:44px;
+  }
+  .bottom-nav__item.active{color:var(--accent);font-weight:600;}
+  .bottom-nav__icon{font-size:18px;line-height:1;}
+
+  /* 版本号 */
+  .version-text{
+    text-align:center;
+    color:#5f6a83;
+    font-size:11px;
+    margin:20px 0 8px;
+    letter-spacing:0.5px;
+  }
+
+  @media(max-width:480px){
+    .app-main{padding:8px;}
+    .panel{padding:10px;}
+    .ball-lg{width:26px;height:26px;font-size:13px;}
+    .ball-sm{width:18px;height:18px;font-size:10px;}
+    .stats-grid{grid-template-columns:repeat(2,1fr);}
+    .hist-card{padding:9px 10px;}
+    #latestH{width:130px;}
+    #syncCount{width:90px;}
+  }
+
+  @media(min-width:600px){
+    .app-shell{max-width:720px;margin:0 auto;}
+    .bottom-nav{max-width:720px;left:50%;transform:translateX(-50%);}
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <main class="app-main" id="appMain">
+
+    <!-- ============ 同步页 ============ -->
+    <section class="panel-view active" id="view-sync">
+      <div class="panel">
+        <div class="title">数据同步</div>
+        <div class="hint-text">💡 建议先在「我的」页填写 API Key，可大幅提升同步速度。</div>
+        <div class="input-group">
+          <span>最新高度：</span>
+          <input type="number" id="latestH" value="88054000" placeholder="当前区块高度">
+        </div>
+        <div class="input-group">
+          <span>同步期数：</span>
+          <input type="number" id="syncCount" value="30" min="1" max="5000">
+          <span class="inline-hint">每期 20 个高度，自动往前推</span>
+        </div>
+        <div class="hint-text">📌 从最新高度开始，每次减 20 往前推 N 期；抓完自动按「老 → 新」排序。</div>
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-inner" id="progressInner"></div>
+        </div>
+        <div class="status-text" id="statusText">准备就绪</div>
+        <button id="fetchBtn">开始同步</button>
+      </div>
+    </section>
+
+    <!-- ============ 推演页 ============ -->
+    <section class="panel-view" id="view-quant">
+      <div class="panel" id="quantPlaceholder">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-2);">
+          <div style="font-size:32px;margin-bottom:12px;">◎</div>
+          <div>请先在「同步」页完成数据同步</div>
+          <div style="font-size:12px;margin-top:6px;">同步后即可生成下一期推演目标</div>
+        </div>
+      </div>
+
+      <div id="quantContent" style="display:none;">
+        <div class="panel">
+          <div class="title">组三专属推演</div>
+
+          <div class="pred-card">
+            <div class="target-h">🎯 推演目标高度：<span id="nextTargetH">----</span></div>
+            <div class="tag">预测 7 码大底（选对子数字池）</div>
+            <div class="rule-desc">规则：开出对子（非豹子），且 3 个数字全在池中即算匹配。</div>
+            <div class="pred-balls" id="nextZ3Balls"></div>
+            <button class="copy-btn" onclick="copyNums()">📋 复制这 7 个号码</button>
+          </div>
+
+          <div class="btn-stack">
+            <button id="predictLiveBtn">同步当前最新区块</button>
+            <button id="runQuantBtn">全景推演历史数据</button>
+          </div>
+
+          <div class="section-title">策略回测数据（单期消耗 252 / 匹配获取 653）</div>
+          <div class="stats-grid">
+            <div class="res-box"><div class="lab">推演期数</div><div class="val" style="color:#bdc3c7;" id="z3Total">0</div></div>
+            <div class="res-box"><div class="lab">匹配 1/2/3 位</div><div class="val" style="color:#3498db;font-size:14px;" id="z3Hits">0 / 0 / 0</div></div>
+            <div class="res-box"><div class="lab">积分总变动</div><div class="val" id="z3Profit">0</div></div>
+            <div class="res-box"><div class="lab">消耗 / 获取</div><div class="val" style="font-size:13px;"><span class="txt-loss" id="z3Cost">0</span> / <span class="txt-win" id="z3Return">0</span></div></div>
+          </div>
+
+          <div class="section-title">近期走势记录</div>
+          <div class="history-list" id="historyList">
+            <div class="hist-card"><div class="hist-label">等待推演…</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 日志页 ============ -->
+    <section class="panel-view" id="view-log">
+      <div class="panel">
+        <div class="title">系统日志</div>
+        <div id="log"></div>
+      </div>
+    </section>
+
+    <!-- ============ 我的页 ============ -->
+    <section class="panel-view" id="view-me">
+      <div class="panel">
+        <div class="title">个人中心</div>
+        <div class="hint-text">填写专属 API Key 可大幅提升同步速度。留空则使用公共节点。</div>
+        <div class="input-group">
+          <input type="text" id="apiKey" placeholder="请粘贴 TronGrid API Key（选填）" autocomplete="off">
+        </div>
+      </div>
+      <div class="panel">
+        <div class="title">本地数据</div>
+        <div class="hint-text" id="localDataInfo">暂无本地数据</div>
+        <button id="clearDataBtn">清除所有本地数据</button>
+      </div>
+      <div class="version-text">量子波动 v1.0.0</div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav" aria-label="主导航">
+    <button class="bottom-nav__item active" data-view="sync" type="button">
+      <span class="bottom-nav__icon">↻</span><span>同步</span>
+    </button>
+    <button class="bottom-nav__item" data-view="quant" type="button">
+      <span class="bottom-nav__icon">◎</span><span>推演</span>
+    </button>
+    <button class="bottom-nav__item" data-view="log" type="button">
+      <span class="bottom-nav__icon">▤</span><span>日志</span>
+    </button>
+    <button class="bottom-nav__item" data-view="me" type="button">
+      <span class="bottom-nav__icon">⚙</span><span>我的</span>
+    </button>
+  </nav>
+</div>
+
+<!-- Loading 遮罩 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">处理中…</div>
+</div>
+
+<script>
+/* ============================================================
+   持久化层
+   ============================================================ */
+const STORE_KEY = 'wavequantum.v2';
+
+const store = {
+  load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : this.defaults();
+    } catch (e) { return this.defaults(); }
+  },
+  save(data) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      return true;
+    } catch (e) {
+      console.warn('localStorage 写入失败', e);
+      log('本地存储写入失败（可能超出容量限制）', 'error');
+      return false;
+    }
+  },
+  defaults() {
+    return {
+      apiKey: '',
+      latestH: 88054000,
+      syncCount: 30,
+      cachedBlocks: [],
+      recentHistory: [],
+      lastStats: null
+    };
+  }
+};
+
+let state = store.load();
+if (state.latestH === undefined) {
+  state.latestH = state.startH ?? 88054000;
+  delete state.startH;
+}
+if (state.syncCount === undefined) state.syncCount = 30;
+
+let persistTimer = null;
+function persist() {
+  clearTimeout(persistTimer);
+  store.save(state);
+}
+function persistDebounced() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => store.save(state), 300);
+}
+
+/* ============================================================
+   配置
+   ============================================================ */
+const STEP = 20;
+const Z3_COST = 252, Z3_WIN = 653;
+const REQUEST_DELAY = 350;
+
+let isRunning = false;
+let userApiKey = state.apiKey || "";
+let nextZ3Nums = [];
+
+/* ============================================================
+   日志（时间戳 + 四级配色）
+   ============================================================ */
+function nowStamp() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `[${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}]`;
+}
+
+function log(msg, level = 'info') {
+  const box = document.getElementById('log');
+  if (!box) return;
+  const line = document.createElement('div');
+  line.className = 'log-line log-' + level;
+  const ts = document.createElement('span');
+  ts.className = 'log-ts';
+  ts.textContent = nowStamp() + ' ';
+  const body = document.createElement('span');
+  body.textContent = msg;
+  line.appendChild(ts);
+  line.appendChild(body);
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+function clearLog() {
+  const box = document.getElementById('log');
+  if (box) box.innerHTML = '';
+}
+
+/* ============================================================
+   Loading 遮罩
+   ============================================================ */
+function showLoading(text = '处理中…') {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function setLoadingText(text) {
+  document.getElementById('loadingText').textContent = text;
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+/* ============================================================
+   网络请求
+   ============================================================ */
+function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .then(res => { clearTimeout(timer); return res; })
+    .catch(err => { clearTimeout(timer); throw err; });
+}
+
+async function fetchSingleBlock(num) {
+  const targetUrl = `https://api.trongrid.io/wallet/getblockbynum?num=${num}`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (userApiKey) headers['TRON-PRO-API-KEY'] = userApiKey;
+  try {
+    const r = await fetchWithTimeout(targetUrl, { method: 'POST', headers, body: JSON.stringify({ num }) });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d && d.blockID) return d.blockID;
+  } catch (e) {}
+  return null;
+}
+
+async function getLatestHeight() {
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (userApiKey) headers['TRON-PRO-API-KEY'] = userApiKey;
+    const r = await fetchWithTimeout('https://api.trongrid.io/wallet/getnowblock', { method: 'POST', headers, body: '{}' });
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.block_header) return d.block_header.raw_data.number;
+    }
+  } catch (e) {}
+  return null;
+}
+
+/* ============================================================
+   Tab 切换
+   ============================================================ */
+const views = {
+  sync: document.getElementById('view-sync'),
+  quant: document.getElementById('view-quant'),
+  log: document.getElementById('view-log'),
+  me: document.getElementById('view-me')
+};
+
+function switchTab(name) {
+  document.querySelectorAll('.bottom-nav__item').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === name);
+  });
+  Object.values(views).forEach(v => v.classList.remove('active'));
+  if (views[name]) views[name].classList.add('active');
+  document.getElementById('appMain').scrollTop = 0;
+}
+
+document.querySelectorAll('.bottom-nav__item').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.view));
+});
+
+/* ============================================================
+   推演面板显示控制
+   ============================================================ */
+function showQuantContent() {
+  document.getElementById('quantPlaceholder').style.display = 'none';
+  document.getElementById('quantContent').style.display = 'block';
+}
+function hideQuantContent() {
+  document.getElementById('quantPlaceholder').style.display = 'block';
+  document.getElementById('quantContent').style.display = 'none';
+}
+function updateLocalDataInfo() {
+  const el = document.getElementById('localDataInfo');
+  const n = state.cachedBlocks ? state.cachedBlocks.length : 0;
+  if (n === 0) {
+    el.textContent = '暂无本地数据';
+  } else {
+    const first = state.cachedBlocks[0];
+    const last = state.cachedBlocks[n - 1];
+    el.textContent = `已保存 ${n} 期（${first.h} → ${last.h}），切换 App 或重启后自动恢复。`;
+  }
+}
+
+/* ============================================================
+   从最新高度往前推 N 期
+   ============================================================ */
+async function fetchHistoryBackward(latestH, count) {
+  const anchorH = latestH - (latestH % STEP);
+  const maxCount = Math.floor((anchorH - 1) / STEP) + 1;
+  if (count > maxCount) {
+    if (!confirm(`期数过多，最多只能同步 ${maxCount} 期，是否继续同步 ${maxCount} 期？`)) {
+      return [];
+    }
+    count = maxCount;
+  }
+
+  const heights = [];
+  for (let i = 0; i < count; i++) heights.push(anchorH - i * STEP);
+
+  const total = heights.length;
+  log(`[队列] 从高度 ${anchorH} 往前推 ${total} 期（每期 ${STEP} 个高度）...`, 'info');
+
+  const results = new Array(total).fill(null);
+  let successCount = 0;
+  let tasks = heights.map((h, index) => ({ h, index }));
+
+  while (tasks.length > 0) {
+    const nextBatch = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      document.getElementById('statusText').textContent =
+        `正在同步: ${successCount}/${total} (高度: ${task.h})`;
+      document.getElementById('progressInner').style.width =
+        Math.floor((successCount / total) * 100) + '%';
+      setLoadingText(`正在同步… ${successCount}/${total}`);
+
+      const hash = await fetchSingleBlock(task.h);
+      if (hash) {
+        const digits5 = hash.replace(/[^0-9]/g, '').slice(-5).padStart(5, '0');
+        results[task.index] = { h: task.h, digits5 };
+        successCount++;
+      } else {
+        nextBatch.push(task);
+      }
+      await new Promise(r => setTimeout(r, REQUEST_DELAY));
+    }
+    tasks = nextBatch;
+    if (tasks.length > 0) {
+      log(`还有 ${tasks.length} 个失败，休息 3 秒后重试...`, 'warn');
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+
+  const fetched = results.filter(r => r !== null);
+  fetched.reverse();
+  log(`[同步完毕] 成功获取 ${fetched.length}/${total} 期，已按「老 → 新」排序。`, 'success');
+  return fetched;
+}
+
+/* ============================================================
+   初始同步入口
+   ============================================================ */
+document.getElementById('fetchBtn').addEventListener('click', async () => {
+  if (isRunning) return;
+
+  state.apiKey = (document.getElementById('apiKey').value || '').trim();
+  userApiKey = state.apiKey;
+
+  const latestH = parseInt(document.getElementById('latestH').value, 10);
+  const syncCount = parseInt(document.getElementById('syncCount').value, 10);
+
+  if (!latestH || latestH <= 0) { alert('请输入有效的最新高度'); return; }
+  if (!syncCount || syncCount < 1) { alert('请输入有效的同步期数（至少 1 期）'); return; }
+  if (syncCount > 5000 && !confirm(`同步 ${syncCount} 期可能需要较长时间，确定继续？`)) return;
+
+  if (!userApiKey) {
+    const goFill = confirm('💡 建议先去「我的」页填写 API Key，可大幅提升同步速度哦～\n\n是否现在去填写？');
+    if (goFill) { switchTab('me'); return; }
+    log('未填写 API Key，正在使用公共节点慢速同步...', 'warn');
+  }
+
+  isRunning = true;
+  const btn = document.getElementById('fetchBtn');
+  btn.disabled = true;
+  btn.textContent = '正在同步…';
+
+  clearLog();
+  hideQuantContent();
+  document.getElementById('progressBar').style.display = 'block';
+  document.getElementById('progressInner').style.width = '0%';
+  showLoading('正在获取最新高度…');
+
+  try {
+    state.latestH = latestH;
+    state.syncCount = syncCount;
+    persist();
+
+    state.cachedBlocks = await fetchHistoryBackward(latestH, syncCount);
+    state.recentHistory = [];
+    state.lastStats = null;
+    persist();
+
+    document.getElementById('statusText').textContent =
+      `同步完毕，共 ${state.cachedBlocks.length} 期。`;
+    showQuantContent();
+    updateLocalDataInfo();
+    renderPredictions();
+  } catch (err) {
+    log(`[报错] ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '开始同步';
+    isRunning = false;
+    hideLoading();
+  }
+});
+
+/* ============================================================
+   核心算法
+   ============================================================ */
+function extractTriple(digits5, pos) {
+  if (pos === '前三') return digits5.slice(0, 3);
+  if (pos === '中三') return digits5.slice(1, 4);
+  if (pos === '后三') return digits5.slice(2, 5);
+  return '';
+}
+
+function generateZ3Numbers(historyBlocks) {
+  if (historyBlocks.length === 0) return [0,1,2,3,4,5,6];
+  const lastBlock = historyBlocks[historyBlocks.length - 1];
+  const lastDigits = Array.from(new Set(lastBlock.digits5.split('').map(Number)));
+
+  let selected = [...lastDigits];
+
+  if (selected.length < 7) {
+    const freq = {};
+    for (let i = 0; i < 10; i++) freq[i] = 0;
+    const recent10 = historyBlocks.slice(-10);
+    recent10.forEach(b => {
+      for (let char of b.digits5) freq[parseInt(char)]++;
+    });
+
+    let candidates = [];
+    for (let i = 0; i < 10; i++) {
+      if (!selected.includes(i)) candidates.push({ num: i, score: freq[i] });
+    }
+    candidates.sort((a, b) => b.score - a.score);
+
+    for (let c of candidates) {
+      if (selected.length >= 7) break;
+      selected.push(c.num);
+    }
+  }
+
+  let num = 0;
+  while (selected.length < 7) {
+    if (!selected.includes(num)) selected.push(num);
+    num++;
+  }
+  selected.sort((a, b) => a - b);
+  return selected;
+}
+
+function checkZ3(digits3, allowedNums) {
+  const a = parseInt(digits3[0]), b = parseInt(digits3[1]), c = parseInt(digits3[2]);
+  if (a === b && b === c) return false;
+  const isPair = (a === b || b === c || a === c);
+  if (!isPair) return false;
+  return allowedNums.includes(a) && allowedNums.includes(b) && allowedNums.includes(c);
+}
+
+/* ============================================================
+   双色球数字球渲染
+   ============================================================ */
+const BALL_COLORS = [
+  '#e74c3c', // 0 红
+  '#e67e22', // 1 橙
+  '#d4a017', // 2 金黄
+  '#27ae60', // 3 绿
+  '#16a085', // 4 青
+  '#2980b9', // 5 蓝
+  '#8e44ad', // 6 紫
+  '#c0392b', // 7 深红
+  '#2c3e50', // 8 深蓝灰
+  '#7f8c8d'  // 9 灰
+];
+
+function renderBalls(str, size = 'sm') {
+  return Array.from(str).map(ch => {
+    const n = parseInt(ch, 10);
+    const color = BALL_COLORS[isNaN(n) ? 9 : n];
+    return `<span class="ball ball-${size}" style="background:${color}">${ch}</span>`;
+  }).join('');
+}
+
+/* ============================================================
+   渲染
+   ============================================================ */
+function renderPredictions() {
+  if (!state.cachedBlocks || state.cachedBlocks.length === 0) return;
+
+  nextZ3Nums = generateZ3Numbers(state.cachedBlocks);
+  const nextTargetH = state.cachedBlocks[state.cachedBlocks.length - 1].h + STEP;
+
+  document.getElementById('nextTargetH').textContent = nextTargetH;
+  document.getElementById('nextZ3Balls').innerHTML = renderBalls(nextZ3Nums.join(''), 'lg');
+
+  renderHistory(nextTargetH);
+}
+
+/* ============================================================
+   历史记录：三行紧凑卡片
+   行1：高度（左） | 比对状态（右）
+   行2：实际号码球（左） | 积分变动（右）
+   行3：预测 7 码球（整行）
+   ============================================================ */
+function renderHistory(nextTargetH) {
+  const list = document.getElementById('historyList');
+  let html = '';
+
+  // 等待比对卡片
+  html += `
+    <div class="hist-card hist-pending">
+      <div class="hist-row">
+        <span class="hist-h">#${nextTargetH}</span>
+        <span class="hist-status txt-wait">等待比对</span>
+      </div>
+      <div class="hist-row">
+        <div class="hist-left">
+          <span class="hist-label">实际</span>
+          <span class="hist-placeholder">等待产生</span>
+        </div>
+        <span class="hist-profit" style="color:#7f8c8d;">--</span>
+      </div>
+      <div class="hist-row hist-row-sep">
+        <div class="hist-left">
+          <span class="hist-label">预测</span>
+          <div class="balls">${renderBalls(nextZ3Nums.join(''), 'sm')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (state.recentHistory && state.recentHistory.length > 0) {
+    for (let i = state.recentHistory.length - 1; i >= 0; i--) {
+      const item = state.recentHistory[i];
+      const hasHit = item.z3Status.includes('匹配');
+      const statusClass = hasHit ? 'txt-hit' : 'txt-miss';
+      const profitClass = item.profit >= 0 ? 'txt-win' : 'txt-loss';
+      const profitStr = (item.profit > 0 ? '+' : '') + item.profit;
+
+      html += `
+        <div class="hist-card">
+          <div class="hist-row">
+            <span class="hist-h">#${item.h}</span>
+            <span class="hist-status ${statusClass}">${item.z3Status}</span>
+          </div>
+          <div class="hist-row">
+            <div class="hist-left">
+              <span class="hist-label">实际</span>
+              <div class="balls">${renderBalls(item.digits5, 'sm')}</div>
+            </div>
+            <span class="hist-profit ${profitClass}">${profitStr}</span>
+          </div>
+          <div class="hist-row hist-row-sep">
+            <div class="hist-left">
+              <span class="hist-label">预测</span>
+              <div class="balls">${renderBalls(item.predNumsZ3, 'sm')}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  list.innerHTML = html;
+}
+
+function renderStats(s) {
+  if (!s) return;
+  document.getElementById('z3Total').textContent = s.total;
+  document.getElementById('z3Hits').textContent = `${s.hits[0]} / ${s.hits[1]} / ${s.hits[2]}`;
+  document.getElementById('z3Cost').textContent = `-${s.cost}`;
+  document.getElementById('z3Return').textContent = `+${s.ret}`;
+  const el = document.getElementById('z3Profit');
+  el.textContent = (s.profit > 0 ? '+' : '') + s.profit;
+  el.className = 'val ' + (s.profit >= 0 ? 'txt-win' : 'txt-loss');
+}
+
+function copyNums() {
+  if (nextZ3Nums.length === 0) { alert('请先同步数据生成号码！'); return; }
+  const text = nextZ3Nums.join('');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => alert(`✅ 已复制 7 码大底：${text}`))
+      .catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); alert(`✅ 已复制 7 码大底：${text}`); }
+  catch (e) { alert('复制失败，请手动复制：' + text); }
+  document.body.removeChild(ta);
+}
+
+/* ============================================================
+   同步当前最新区块（主按钮：加载文字 + 全屏遮罩 + 防狂点）
+   ============================================================ */
+document.getElementById('predictLiveBtn').addEventListener('click', async () => {
+  if (isRunning) return;
+  if (!state.cachedBlocks || state.cachedBlocks.length === 0) {
+    alert('请先在「同步」页完成数据同步');
+    return;
+  }
+
+  isRunning = true;
+  const btn = document.getElementById('predictLiveBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '正在极速补齐中…';
+  showLoading('正在获取最新高度…');
+
+  try {
+    const realLatestH = await getLatestHeight();
+    if (!realLatestH) {
+      alert("获取网络最新高度失败，请检查网络或确认是否填写了有效的 API Key");
+      return;
+    }
+
+    const targetH = realLatestH - (realLatestH % STEP) + (state.cachedBlocks[0].h % STEP);
+    let lastH = state.cachedBlocks[state.cachedBlocks.length - 1].h;
+
+    if (lastH >= targetH) {
+      log(`当前数据已是最新（高度 ${lastH}），无需补期。`, 'info');
+      renderPredictions();
+      return;
+    }
+
+    const missingCount = Math.floor((targetH - lastH) / STEP);
+    log(`落后 ${missingCount} 期，开始补齐...`, 'info');
+
+    while (lastH < targetH) {
+      lastH += STEP;
+      setLoadingText(`正在极速补齐中… ${lastH}`);
+
+      const hash = await fetchSingleBlock(lastH);
+      if (hash) {
+        const digits5 = hash.replace(/[^0-9]/g, '').slice(-5).padStart(5, '0');
+        state.cachedBlocks.push({ h: lastH, digits5 });
+        log(`[补齐] 高度 ${lastH}，号码: ${digits5}`, 'info');
+      } else {
+        log(`[跳过] 高度 ${lastH} 获取失败。`, 'error');
+      }
+      await new Promise(r => setTimeout(r, REQUEST_DELAY));
+    }
+
+    persist();
+    updateLocalDataInfo();
+    log(`[同步完成] 已追平至最新期 ${lastH}。`, 'success');
+    renderPredictions();
+  } catch (err) {
+    log(`[报错] ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    isRunning = false;
+    hideLoading();
+  }
+});
+
+/* ============================================================
+   全景推演（次按钮，线框 + Loading）
+   ============================================================ */
+document.getElementById('runQuantBtn').addEventListener('click', () => {
+  if (!state.cachedBlocks || state.cachedBlocks.length < 5) {
+    alert('同步的数据太少（至少 5 期），无法推演');
+    return;
+  }
+
+  showLoading('正在推演…');
+  setTimeout(() => {
+    try {
+      let z3Cost = 0, z3Return = 0, z3Hits = [0, 0, 0];
+      let totalRounds = 0;
+      state.recentHistory = [];
+
+      const startIdx = Math.min(20, state.cachedBlocks.length - 1);
+
+      for (let i = startIdx; i < state.cachedBlocks.length; i++) {
+        const currBlock = state.cachedBlocks[i];
+        const pastBlocks = state.cachedBlocks.slice(0, i);
+
+        const z3Bets = generateZ3Numbers(pastBlocks);
+        const posList = ['前三', '中三', '后三'];
+        let z3HitCount = 0;
+
+        posList.forEach(pos => {
+          const d3 = extractTriple(currBlock.digits5, pos);
+          if (checkZ3(d3, z3Bets)) z3HitCount++;
+        });
+
+        z3Cost += Z3_COST;
+        z3Return += z3HitCount * Z3_WIN;
+
+        if (z3HitCount >= 1) z3Hits[0]++;
+        if (z3HitCount >= 2) z3Hits[1]++;
+        if (z3HitCount === 3) z3Hits[2]++;
+
+        const roundProfit = (z3HitCount * Z3_WIN) - Z3_COST;
+        totalRounds++;
+
+        if (state.recentHistory.length >= 10) state.recentHistory.shift();
+        state.recentHistory.push({
+          h: currBlock.h,
+          digits5: currBlock.digits5,
+          predNumsZ3: z3Bets.join(''),
+          z3Status: posList.map(pos => checkZ3(extractTriple(currBlock.digits5, pos), z3Bets) ? '匹配' : '未匹配').join('/'),
+          profit: roundProfit
+        });
+      }
+
+      const z3TotalProfit = z3Return - z3Cost;
+      state.lastStats = {
+        total: totalRounds,
+        hits: [...z3Hits],
+        cost: z3Cost,
+        ret: z3Return,
+        profit: z3TotalProfit
+      };
+      persist();
+
+      renderStats(state.lastStats);
+      renderPredictions();
+      log(`[推演完成] 处理 ${totalRounds} 期，积分变动 ${z3TotalProfit >= 0 ? '+' : ''}${z3TotalProfit}。`, 'success');
+    } catch (error) {
+      log(`[报错] ${error.message}`, 'error');
+      alert(`运行出错，请查看日志。\n错误: ${error.message}`);
+    } finally {
+      hideLoading();
+    }
+  }, 50);
+});
+
+/* ============================================================
+   清除数据（低调描边按钮 + 专项二次确认）
+   ============================================================ */
+document.getElementById('clearDataBtn').addEventListener('click', () => {
+  if (!confirm('确定要清空所有历史推演数据吗？\n\n此操作不可逆，同步的区块、回测记录、API Key 都会被一并清除。')) return;
+
+  localStorage.removeItem(STORE_KEY);
+  state = store.defaults();
+  userApiKey = '';
+  nextZ3Nums = [];
+
+  document.getElementById('apiKey').value = '';
+  document.getElementById('latestH').value = 88054000;
+  document.getElementById('syncCount').value = 30;
+  clearLog();
+  document.getElementById('statusText').textContent = '本地数据已清除';
+  document.getElementById('nextTargetH').textContent = '----';
+  document.getElementById('nextZ3Balls').innerHTML = '';
+  document.getElementById('historyList').innerHTML = '<div class="hist-card"><div class="hist-label">等待推演…</div></div>';
+  document.getElementById('z3Total').textContent = '0';
+  document.getElementById('z3Hits').textContent = '0 / 0 / 0';
+  document.getElementById('z3Cost').textContent = '0';
+  document.getElementById('z3Return').textContent = '0';
+  document.getElementById('z3Profit').textContent = '0';
+  document.getElementById('z3Profit').className = 'val';
+
+  hideQuantContent();
+  updateLocalDataInfo();
+  log('本地数据已清除。', 'info');
+});
+
+/* ============================================================
+   输入即时保存
+   ============================================================ */
+document.getElementById('apiKey').addEventListener('input', e => {
+  state.apiKey = e.target.value.trim();
+  userApiKey = state.apiKey;
+  persistDebounced();
+});
+document.getElementById('latestH').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if (!isNaN(v) && v > 0) { state.latestH = v; persistDebounced(); }
+});
+document.getElementById('syncCount').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if (!isNaN(v) && v > 0) { state.syncCount = v; persistDebounced(); }
+});
+
+/* ============================================================
+   启动恢复
+   ============================================================ */
+(function boot() {
+  if (state.apiKey) document.getElementById('apiKey').value = state.apiKey;
+  document.getElementById('latestH').value = state.latestH;
+  document.getElementById('syncCount').value = state.syncCount;
+  updateLocalDataInfo();
+
+  if (state.cachedBlocks && state.cachedBlocks.length > 0) {
+    showQuantContent();
+    renderPredictions();
+    if (state.lastStats) renderStats(state.lastStats);
+    log(`[恢复] 已从本地存储恢复 ${state.cachedBlocks.length} 期数据。`, 'info');
+  } else {
+    hideQuantContent();
+  }
+})();
+</script>
+</body>
+</html>
